@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
+
+</head>
+
+<body class="bg-gray-300 flex items-center justify-center h-screen">
+
+    <div class="bg-white p-10 rounded-lg shadow-md">
+        <table>
+            <tr>
+                <td>
+                    <div class="bg-blue-400 text-center rounded-lg">La <b>vieja</b> Online</div>              
+                    <h4>Turno Actual: <span id="current-player"></span></h4>
+                    Juegas con: <span id="player"></span><br>
+                    Estado de la partida: <span id="info" class="bg-green-400"></span>                    
+                </td>
+            </tr>
+            <tr>
+                <td id="board-cell">
+                    <div class="p-5 bg-blue-300 flex justify-center">
+                        
+                        <table id="board" class="bg-gray-200 text-2xl">
+                            <tr class="text-3xl">
+                                <td id="1" onclick="celdaSeleccionada(1)" class="px-20 py-10 hover:bg-blue-400 border-r-2 border-b-2 border-black"> </td>
+                                <td id="2" onclick="celdaSeleccionada(2)" class="px-20 py-10 hover:bg-blue-400 border-l-2 border-b-2 border-r-2 border-black"> </td>
+                                <td id="3" onclick="celdaSeleccionada(3)" class="px-20 py-10 hover:bg-blue-400 border-l-2 border-b-2 border-black"> </td>
+                            </tr>
+                            <tr class="text-3xl">
+                                <td id="4" onclick="celdaSeleccionada(4)" class="px-20 py-10 hover:bg-blue-400 border-b-2 border-r-2 border-black"> </td>
+                                <td id="5" onclick="celdaSeleccionada(5)" class="px-20 py-10 hover:bg-blue-400 border-2 border-black"> </td>
+                                <td id="6" onclick="celdaSeleccionada(6)" class="px-20 py-10 hover:bg-blue-400 border-t-2 border-l-2 border-b-2 border-black"> </td>
+                            </tr>
+                            <tr class="text-3xl">
+                                <td id="7" onclick="celdaSeleccionada(7)" class="px-20 py-10 hover:bg-blue-400 border-t-2 border-r-2 border-black"> </td>
+                                <td id="8" onclick="celdaSeleccionada(8)" class="px-20 py-10 hover:bg-blue-400 border-t-2 border-l-2 border-r-2 border-black"> </td>
+                                <td id="9" onclick="celdaSeleccionada(9)" class="px-20 py-10 hover:bg-blue-400 border-t-2 border-l-2 border-black"> </td>
+                            </tr>
+                            
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+//Ip de quien monta el servidor. Dejar puerto 8000
+    <script>
+        var conexionWebSocket = new WebSocket("ws://25.0.189.162:8000/ws");
+        let jugador = null
+        let jugadorActual = null       
+        let pantallaActualJugador = document.getElementById('current-player')
+        let infoDisplay = document.getElementById('info')
+        let infoPlayer = document.getElementById('player')
+        swaper = {
+            "X": "O",
+            "O": "X"
+        }     
+        let juegoFinalizado = false
+        function celdasEmpate() {
+            let casilla = 1;
+            while (casilla <= 9) {
+                document.getElementById(casilla).style.backgroundColor = 'rgb(40, 55, 71)';
+                casilla++;
+            }
+        }
+        function resaltarFilaGanadora() {
+    let casillas = Array.from({length: 9}, (_, i) => document.getElementById(i + 1));
+    //casos posibles
+    let combinacionesGanadoras = [
+        [0, 3, 6],
+        [0, 1, 2],
+        [3, 4, 5],
+        [0, 4, 8],
+        [6, 7, 8],        
+        [1, 4, 7],
+        [2, 5, 8],        
+        [6, 4, 2],
+    ];
+
+    for (let combinacion of combinacionesGanadoras) {
+        let [a, b, c] = combinacion;
+        if (casillas[a].innerHTML !== ' ' && casillas[a].innerHTML === casillas[b].innerHTML && casillas[a].innerHTML === casillas[c].innerHTML) {
+            casillas[a].style.backgroundColor = 'green';
+            casillas[b].style.backgroundColor = 'green';
+            casillas[c].style.backgroundColor = 'green';
+            break;
+        }
+    }
+}
+        function AlternarJugadores() {
+            jugadorActual = swaper[jugadorActual]           
+            if (jugador == jugadorActual) {
+                infoDisplay.innerHTML = "Es tu turno!"
+                pantallaActualJugador.innerHTML = jugador
+            } else {
+                infoDisplay.innerHTML = "Es el turno de tu oponente!"
+                pantallaActualJugador.innerHTML = swaper[jugador]
+            }
+        }
+
+        function revisarCelda(cell) {
+            if (cell.innerHTML == ' ' & jugador == jugadorActual) {
+                return true
+            }
+            return false
+        }
+        function actualizarValoresCelda(row, col, sign) {
+            let id = row  * 3 + col + 1;
+            cell = document.getElementById(id.toString())
+            cell.innerHTML = sign
+        }
+        function updateInfo(message) {
+            infoDisplay.innerHTML = message
+        }
+        function celdaSeleccionada(id) {
+            if (juegoFinalizado) {
+                return
+            }           
+            cell = document.getElementById(id)
+            if (revisarCelda(cell)) {
+                let row = Math.floor((id - 1) / 3);
+                let col = (id - 1) % 3;
+                conexionWebSocket.send(JSON.stringify({ player: jugador, cell: [row, col] }))
+            } else {
+                infoDisplay.innerHTML = "Movimiento no valido -- Espera tu turno"
+            }
+        }
+        conexionWebSocket.onmessage = function (e) {
+            response = JSON.parse(e.data)
+            console.log("On message", response);
+            if (response.init) {
+                infoDisplay.innerHTML = "Juegas con: " + response.player + ". " + response.message
+                infoPlayer.innerHTML = response.player
+                if (response.message != "Esperando a otro jugador") {
+                    jugador = response.player
+                }
+                jugadorActual = "X"
+                pantallaActualJugador.innerHTML = "X"
+            } else {
+                if (response.message == 'seleccionar') {
+                    actualizarValoresCelda(response.cell[0], response.cell[1], response.player)
+                    AlternarJugadores()
+                } else if (response.message == 'empate') {
+                    updateInfo("Es un empate")
+                    actualizarValoresCelda(response.cell[0], response.cell[1], response.player)
+                    celdasEmpate()
+                    conexionWebSocket.close(1000)
+                } else if (response.message == 'ganaste') {
+                    if(response.info){
+                        mensaje = response.info
+                    }else{
+                        mensaje = ''
+                    }
+                    updateInfo("El Jugador " + response.player + " Gano. " + 'Juega otra partida ' + mensaje)
+                    actualizarValoresCelda(response.cell[0], response.cell[1], response.player)
+                    resaltarFilaGanadora()
+                    conexionWebSocket.close(1000)
+                } else if (response.player == jugador & response.message == 'Escoge otra celda') {
+                    updateInfo("La celda no esta disponible")
+                } else {
+                    console.log(response);
+                }
+            }
+        }
+        conexionWebSocket.onclose = function (e) {
+            if (e.code == 4000) {
+                infoDisplay.innerHTML = "No hay mas espacio para jugar"
+            } else if (e.code != 1000) {
+                infoDisplay.innerHTML = "A sucedido un error inesperado"
+            }
+            juegoFinalizado = true
+        }
+
+        window.onbeforeunload = function () {
+            conexionWebSocket.onclose = function () { };
+            conexionWebSocket.close()
+        };
+    </script>
+</body>
+
+</html>
+
+
