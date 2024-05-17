@@ -1,2 +1,4 @@
 Ejecutar servidor:
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+recordar cambiar la IP de la persona quien monte el server
